@@ -1,0 +1,61 @@
+/**
+ * The built-in sample template.
+ *
+ * This single string is used for three things, so they can never drift apart:
+ *  1. the initial template of a newly added web part,
+ *  2. the "Load sample template" action in the property pane,
+ *  3. the file produced by "Download Sample HTML".
+ *
+ * It only needs a Title column, which every basic SharePoint list has. The text is plain ASCII so the
+ * downloaded file opens correctly in any editor regardless of encoding.
+ */
+export const DEFAULT_TEMPLATE: string = `<!--
+  Custom List UI - sample template
+
+  HOW IT WORKS
+  - You control the whole layout: header, content, repeated cards and footer.
+  - Repeated items: everything between the "each items" start and end markers below is repeated once per list item.
+      Start marker:  double opening braces, #each items, double closing braces
+      End marker:    double opening braces, /each, double closing braces
+  - Field values: write the SharePoint INTERNAL field name inside single braces, prefixed with "item."
+      Example: item.Title shows the Title column. Use it only inside the repeated block.
+      Internal names can differ from display names (for example a column shown as "Due Date" may be "Due_x0020_Date").
+  - Icons: use Flaticon Uicons (regular rounded), for example  <i class="fi fi-rr-calendar" aria-hidden="true"></i>
+      Flaticon icon reference:
+      https://www.flaticon.com/packs/search?word=third%20party&color=black
+      You can explore icons on that page, but this web part only supports the Uicons "regular rounded" icon set that is
+      installed with it. Use a class that starts with fi-rr- (for example fi-rr-calendar). Icons or packs from other
+      styles or packs on the website will not display. While typing a class in the HTML editor, type fi-rr- to see
+      the supported names. Unknown names are reported as a note and show nothing.
+  - Styling: use inline style="..." attributes. Style tags, scripts, event handlers and external stylesheets are not allowed.
+  - Responsive cards: grid-template-columns with repeat(auto-fit, minmax(220px, 1fr)) wraps cards automatically
+      without media queries.
+  - These comments are removed when the template is displayed.
+-->
+<section aria-label="List items" style="border: 1px solid #e1dfdd; border-radius: 8px; overflow: hidden; background-color: #ffffff; color: #323130;">
+  <header style="padding: 20px 24px; background: linear-gradient(135deg, #0078d4, #005a9e); color: #ffffff;">
+    <h2 style="margin: 0; font-size: 24px; font-weight: 600;">
+      <i class="fi fi-rr-list" aria-hidden="true" style="margin-right: 8px;"></i>My list
+    </h2>
+    <p style="margin: 8px 0 0; font-size: 14px;">Replace this text with a description of your list.</p>
+  </header>
+
+  <div style="padding: 20px 24px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+      {{#each items}}
+      <article style="display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid #edebe9; border-radius: 6px; background-color: #faf9f8;">
+        <i class="fi fi-rr-document" aria-hidden="true" style="font-size: 22px; color: #0078d4;"></i>
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">{item.Title}</h3>
+      </article>
+      {{/each}}
+    </div>
+  </div>
+
+  <footer style="padding: 12px 24px; border-top: 1px solid #edebe9; background-color: #f3f2f1; font-size: 12px; color: #605e5c;">
+    <i class="fi fi-rr-info" aria-hidden="true" style="margin-right: 6px;"></i>Uicons by <a href="https://www.flaticon.com/uicons" target="_blank" rel="noopener noreferrer" style="color: #0078d4;">Flaticon</a>
+  </footer>
+</section>
+`;
+
+/** File name offered by the "Download Sample HTML" action. */
+export const SAMPLE_FILE_NAME: string = 'custom-list-ui-sample.html';

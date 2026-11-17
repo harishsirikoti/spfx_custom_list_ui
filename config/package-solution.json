@@ -1,0 +1,39 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "custom-list-ui-client-side-solution",
+    "id": "96c842ba-ac34-48e8-8c24-d5a58088f6a8",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.24.0"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "Custom List UI: show SharePoint list items with a sanitized, editor-controlled HTML template."
+      },
+      "longDescription": {
+        "default": "Custom List UI: show SharePoint list items with a sanitized, editor-controlled HTML template."
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "custom-list-ui Feature",
+        "description": "The feature that activates elements of the custom-list-ui solution.",
+        "id": "1d6a1155-6fdd-499a-9ba5-7de52f1355bd",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/custom-list-ui.sppkg"
+  }
+}

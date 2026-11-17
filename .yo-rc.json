@@ -1,0 +1,23 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "whichFolder": "current",
+    "solutionName": "custom-list-ui",
+    "environment": "spo",
+    "useGulp": false,
+    "componentType": "webpart",
+    "template": "react",
+    "componentName": "CustomListUi",
+    "componentDescription": "Custom List UI",
+    "plusBeta": false,
+    "isCreatingSolution": true,
+    "nodeVersion": "22.23.3",
+    "sdksVersions": {},
+    "version": "1.24.0",
+    "libraryName": "custom-list-ui",
+    "libraryId": "96c842ba-ac34-48e8-8c24-d5a58088f6a8",
+    "packageManager": "npm",
+    "solutionShortDescription": "custom-list-ui description",
+    "skipFeatureDeployment": true
+  }
+}
+

@@ -1,0 +1,75 @@
+// Layout of the HTML template editor panel: toolbars on top, editor and live preview side by side.
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  // Fill the panel body (panel header and footer take roughly 200px).
+  height: calc(100vh - 200px);
+  min-height: 420px;
+}
+
+.toolbar {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fieldPicker {
+  min-width: 260px;
+}
+
+.hint {
+  font-size: 12px;
+  margin: 0;
+}
+
+.split {
+  display: grid;
+  flex: 1;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.heading {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.editorHost {
+  border: 1px solid "[theme:neutralSecondary, default: #605e5c]";
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.previewHost {
+  border: 1px solid "[theme:neutralLight, default: #edebe9]";
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}
+
+.footerNote {
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+
+// On narrow screens the editor and the preview stack vertically.
+@media (max-width: 800px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
