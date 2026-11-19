@@ -23,7 +23,9 @@ import { DEFAULT_TEMPLATE } from '../templating/DefaultTemplate';
 import { getFieldSupport } from '../templating/FieldSupport';
 import { compileTemplate } from '../templating/TemplateRenderer';
 import { downloadSampleHtml } from './downloadSample';
-import { downloadHtmlFile, readTemplateFile } from './templateFile';
+import { getAllIconNames } from '../lucide/iconRegistry';
+import { IconPickerDialog } from './IconPickerDialog';
+import { downloadHtmlFile, downloadTextFile, readTemplateFile } from './templateFile';
 import styles from './TemplateEditorPanel.module.scss';
 import { TemplatePreview } from './TemplatePreview';
 
@@ -32,6 +34,9 @@ const PREVIEW_DEBOUNCE_MS: number = 400;
 
 /** File name used by "Export Current HTML". */
 const EXPORT_FILE_NAME: string = 'custom-list-ui-template.html';
+
+/** File name used by "Export Icon Names". */
+const ICON_NAMES_FILE_NAME: string = 'lucide-icon-names.txt';
 
 export interface ITemplateEditorPanelProps {
   /** The template currently saved in the web part properties. */
@@ -71,6 +76,7 @@ const TemplateEditorPanel: React.FC<ITemplateEditorPanelProps> = (props) => {
   const debouncedDraft: string = useDebouncedValue(draft, PREVIEW_DEBOUNCE_MS);
   const [confirm, setConfirm] = React.useState<ConfirmKind>(undefined);
   const [message, setMessage] = React.useState<{ type: MessageBarType; text: string } | undefined>(undefined);
+  const [isIconPickerOpen, setIsIconPickerOpen] = React.useState<boolean>(false);
   const [selectedField, setSelectedField] = React.useState<string | undefined>(undefined);
   const [fields, setFields] = React.useState<IFieldInfo[]>([]);
   const [fieldsStatus, setFieldsStatus] = React.useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
@@ -188,6 +194,17 @@ const TemplateEditorPanel: React.FC<ITemplateEditorPanelProps> = (props) => {
     }
   };
 
+  /** Inserts the icon tag chosen in the picker at the editor cursor. */
+  const handleInsertIcon = (tag: string): void => {
+    setIsIconPickerOpen(false);
+    editorRef.current?.insertText(tag);
+  };
+
+  /** One icon name per line, ready to paste into the choices of a SharePoint Choice column. */
+  const handleExportIconNames = (): void => {
+    downloadTextFile(ICON_NAMES_FILE_NAME, getAllIconNames().join('\r\n'), 'text/plain');
+  };
+
   const handleInsertField = (): void => {
     if (selectedField) {
       editorRef.current?.insertText(`{item.${selectedField}}`);
@@ -241,6 +258,8 @@ const TemplateEditorPanel: React.FC<ITemplateEditorPanelProps> = (props) => {
               onClick={() => downloadHtmlFile(EXPORT_FILE_NAME, draft)}
             />
             <DefaultButton iconProps={{ iconName: 'Refresh' }} text={strings.ResetSampleButton} onClick={handleReset} />
+            <DefaultButton iconProps={{ iconName: 'Emoji2' }} text={strings.IconPickerButton} onClick={() => setIsIconPickerOpen(true)} />
+            <DefaultButton iconProps={{ iconName: 'TextDocument' }} text={strings.ExportIconNamesButton} onClick={handleExportIconNames} />
             {/* Hidden native file picker; the chosen file is read locally with FileReader and never uploaded. */}
             <input
               ref={fileInput}
@@ -293,6 +312,8 @@ const TemplateEditorPanel: React.FC<ITemplateEditorPanelProps> = (props) => {
           </div>
         </div>
       </Panel>
+
+      {isIconPickerOpen && <IconPickerDialog onInsert={handleInsertIcon} onDismiss={() => setIsIconPickerOpen(false)} />}
 
       <Dialog
         hidden={confirm === undefined}

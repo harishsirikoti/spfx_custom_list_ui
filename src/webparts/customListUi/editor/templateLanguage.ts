@@ -2,7 +2,7 @@
 import type { Completion, CompletionContext, CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 import { Decoration, MatchDecorator, ViewPlugin, type DecorationSet, type EditorView, type ViewUpdate } from '@codemirror/view';
 
-import { UICON_NAMES } from '../icons/uiconNames';
+import { getAllIconNames } from '../lucide/iconRegistry';
 
 /**
  * Editor support for the template syntax. The template language itself is unchanged; this only adds
@@ -57,16 +57,19 @@ export function createPlaceholderCompletionSource(getFieldNames: () => string[])
   };
 }
 
-let iconOptions: Completion[] | undefined;
+let lucideOptions: Completion[] | undefined;
 
-/** Suggests bundled Flaticon Uicons class names once the user types "fi-rr-". */
-export const iconCompletionSource: CompletionSource = (context: CompletionContext): CompletionResult | null => {
-  const match = context.matchBefore(/fi-rr-[a-z0-9-]*/);
+/** Suggests Lucide icon names while typing the value of name="" inside an <icon ...> tag. */
+export const lucideNameCompletionSource: CompletionSource = (context: CompletionContext): CompletionResult | null => {
+  const line = context.state.doc.lineAt(context.pos);
+  const before: string = line.text.slice(0, context.pos - line.from);
+  const match = /<icon\b[^>]*\bname="([a-z0-9-]*)$/.exec(before);
   if (!match) {
     return null;
   }
-  if (!iconOptions) {
-    iconOptions = UICON_NAMES.map((name) => ({ label: name, type: 'class' }));
+  if (!lucideOptions) {
+    lucideOptions = getAllIconNames().map((name) => ({ label: name, type: 'constant' }));
   }
-  return { from: match.from, options: iconOptions, validFor: /^fi-rr-[a-z0-9-]*$/ };
+  return { from: context.pos - match[1].length, options: lucideOptions, validFor: /^[a-z0-9-]*$/ };
 };
+

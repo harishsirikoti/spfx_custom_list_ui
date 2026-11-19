@@ -1,0 +1,62 @@
+// Icon picker: a responsive grid of icon previews with their names.
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.count {
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+.grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.icon {
+  align-items: center;
+  background: "[theme:white, default: #ffffff]";
+  border: 1px solid "[theme:neutralLight, default: #edebe9]";
+  border-radius: 4px;
+  color: "[theme:neutralPrimary, default: #323130]";
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 4px 6px;
+
+  &:hover {
+    background: "[theme:neutralLighter, default: #f3f2f1]";
+  }
+
+  &:focus-visible {
+    outline: 2px solid "[theme:themePrimary, default: #0078d4]";
+    outline-offset: 1px;
+  }
+}
+
+.selected {
+  border-color: "[theme:themePrimary, default: #0078d4]";
+  box-shadow: inset 0 0 0 1px "[theme:themePrimary, default: #0078d4]";
+}
+
+.name {
+  font-size: 11px;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.more {
+  margin-top: 8px;
+}

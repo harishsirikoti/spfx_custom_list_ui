@@ -10,8 +10,6 @@ export interface ICompiledTemplate {
   itemFields: string[];
   /** True when the template contains a {{#each items}} block. */
   hasEachBlock: boolean;
-  /** True when the template uses Uicons classes, so the icon styles must be loaded. */
-  usesIcons: boolean;
 }
 
 /** Outcome of compiling a template: either a compiled template or a list of readable errors. */
@@ -41,11 +39,20 @@ export interface IRenderContext {
 export interface IRenderResult {
   html: string;
   errors: string[];
+  /** Non-blocking notes found while rendering real data, for example an invalid icon or hyperlink value. */
+  warnings: string[];
 }
 
 /** Replacement values used while validating a template, where no real data exists yet. */
 const SAMPLE_TEXT: string = 'x';
 const SAMPLE_URL: string = 'https://example.com/x';
+/** Samples for the attributes of the <icon> tag, so a template such as name="{item.Icon}" validates cleanly. */
+const SAMPLE_ICON_ATTRIBUTES: { [attribute: string]: string } = {
+  name: 'calendar-days',
+  size: '24',
+  color: '#2563eb',
+  'stroke-width': '2'
+};
 
 /** Escapes a string for use in HTML text and in quoted attribute values. */
 export function escapeHtml(value: string): string {
@@ -84,6 +91,16 @@ export function formatFieldValue(value: unknown): string {
   return '';
 }
 
+/** Reads the requested part of a SharePoint Hyperlink field ({ Url, Description }). */
+function formatHyperlinkPart(value: unknown, property: 'url' | 'desc'): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return '';
+  }
+  const record: Record<string, unknown> = value as Record<string, unknown>;
+  const raw: unknown = property === 'url' ? record.Url ?? record.url : record.Description ?? record.description ?? record.desc;
+  return typeof raw === 'string' ? raw : '';
+}
+
 /** Converts a value for insertion according to the HTML context of its placeholder. */
 function encodeForContext(value: string, context: IFieldNode['context']): string {
   if (context === 'urlPart') {
@@ -102,7 +119,13 @@ function fieldToHtml(
   useSamples: boolean
 ): string {
   if (useSamples) {
-    return node.context === 'urlStart' ? SAMPLE_URL : SAMPLE_TEXT;
+    if (node.context === 'urlStart') {
+      return SAMPLE_URL;
+    }
+    if (node.attrName && SAMPLE_ICON_ATTRIBUTES[node.attrName]) {
+      return SAMPLE_ICON_ATTRIBUTES[node.attrName];
+    }
+    return SAMPLE_TEXT;
   }
   let raw: string;
   if (node.source === 'wp_title') {
@@ -110,7 +133,11 @@ function fieldToHtml(
   } else if (node.source === 'wp_description') {
     raw = context.legacyDescription;
   } else {
-    raw = item && node.fieldName ? formatFieldValue(item[node.fieldName]) : '';
+    if (item && node.fieldName) {
+      raw = node.fieldProperty ? formatHyperlinkPart(item[node.fieldName], node.fieldProperty) : formatFieldValue(item[node.fieldName]);
+    } else {
+      raw = '';
+    }
   }
   const encoded: string = encodeForContext(raw, node.context);
   // Keep line breaks of the multiline description when it is shown as element text.
@@ -136,7 +163,21 @@ function buildHtml(nodes: TemplateNode[], context: IRenderContext, useSamples: b
   };
 
   renderNodes(nodes, undefined);
-  return html;
+  // Unknown elements cannot be self-closing in HTML: <icon ... /> would swallow the content after it.
+  return html.replace(/<icon\b([^<>]*?)\s*\/>/gi, '<icon$1></icon>');
+}
+
+/** Finds hyperlink subfield nodes anywhere in the one-level template tree. */
+function getHyperlinkNodes(nodes: TemplateNode[]): IFieldNode[] {
+  const found: IFieldNode[] = [];
+  nodes.forEach((node) => {
+    if (node.type === 'field' && node.fieldProperty) {
+      found.push(node);
+    } else if (node.type === 'each') {
+      found.push(...getHyperlinkNodes(node.children));
+    }
+  });
+  return found;
 }
 
 /** Formats parser issues as "Line x, column y: message". */
@@ -184,7 +225,6 @@ export function compileTemplate(source: string, legacy?: ILegacyValues): ICompil
       nodes: parsed.nodes,
       itemFields: parsed.itemFields,
       hasEachBlock: parsed.nodes.some((n) => n.type === 'each'),
-      usesIcons: /\bfi-rr-/.test(source)
     },
     errors: []
   };
@@ -202,6 +242,7 @@ export function renderTemplate(template: ICompiledTemplate, context: IRenderCont
     if (unknown.length > 0) {
       return {
         html: '',
+        warnings: [],
         errors: unknown.map(
           (name) =>
             `Unknown list field {item.${name}}. Use the field's internal name (for example "Title" or "OData__x0020_Notes").`
@@ -210,6 +251,19 @@ export function renderTemplate(template: ICompiledTemplate, context: IRenderCont
     }
   }
 
+  const hyperlinkWarnings: string[] = [];
+  getHyperlinkNodes(template.nodes).forEach((node) => {
+    const fieldName: string = node.fieldName as string;
+    context.items.forEach((item) => {
+      const value: unknown = item[fieldName];
+      if (value !== null && value !== undefined && (typeof value !== 'object' || Array.isArray(value))) {
+        hyperlinkWarnings.push(`{item.${fieldName}.${node.fieldProperty}} requires a SharePoint Hyperlink field value`);
+      }
+    });
+  });
+
   // Final defence in depth: sanitize the complete output, which also covers values coming from list data.
-  return { html: sanitizeHtml(buildHtml(template.nodes, context, false)).html, errors: [] };
+  const output = sanitizeHtml(buildHtml(template.nodes, context, false));
+  const warnings: string[] = hyperlinkWarnings.concat(output.warnings).filter((warning, index, all) => all.indexOf(warning) === index);
+  return { html: output.html, warnings, errors: [] };
 }

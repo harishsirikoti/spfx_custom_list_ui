@@ -5,6 +5,8 @@
  *   {{#each items}}       start of the repeated block (one level, no nesting)
  *   {{/each}}             end of the repeated block
  *   {item.FieldName}      value of a list item field (SharePoint internal name), inside a repeated block only
+ *   {item.FieldName.url}  URL part of a SharePoint Hyperlink field
+ *   {item.FieldName.desc} description part of a SharePoint Hyperlink field
  *
  * Legacy (read-only) syntax: {wp_title} and {wp_description} were removed from the property pane. Templates
  * saved earlier may still contain them; they keep rendering their saved values and produce a migration warning.
@@ -32,7 +34,11 @@ export interface IFieldNode {
   source: 'wp_title' | 'wp_description' | 'item';
   /** Internal field name; only set when source is "item". */
   fieldName?: string;
+  /** Optional supported subfield for a SharePoint Hyperlink value. */
+  fieldProperty?: 'url' | 'desc';
   context: PlaceholderContext;
+  /** Lower-case name of the attribute the placeholder is in (for example "class"); undefined in element text. */
+  attrName?: string;
   /** 1-based position in the original template, for error messages. */
   line: number;
   column: number;

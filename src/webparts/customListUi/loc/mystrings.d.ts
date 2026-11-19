@@ -62,6 +62,26 @@ declare interface ICustomListUiWebPartStrings {
   ResetConfirmText: string;
   ResetButton: string;
   EditorLoading: string;
+  IconPickerButton: string;
+  IconPickerTitle: string;
+  IconPickerHint: string;
+  IconSearchLabel: string;
+  IconSearchPlaceholder: string;
+  IconSizeLabel: string;
+  IconColorLabel: string;
+  IconInsertButton: string;
+  IconInsertDynamicButton: string;
+  IconCloseButton: string;
+  IconNoResults: string;
+  IconShowMore: string;
+  IconLoading: string;
+  IconLoadError: string;
+  IconResultCount: string;
+  IconSelected: string;
+  IconInvalidSize: string;
+  IconInvalidColor: string;
+  IconCatalogLink: string;
+  ExportIconNamesButton: string;
 }
 
 declare module 'CustomListUiWebPartStrings' {

@@ -52,4 +52,16 @@
     height: auto;
     max-width: 100%;
   }
+
+  // <icon> is an inert marker; the SVG icon is rendered into it by React.
+  icon {
+    align-items: center;
+    display: inline-flex;
+    line-height: 0;
+    vertical-align: middle;
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
 }

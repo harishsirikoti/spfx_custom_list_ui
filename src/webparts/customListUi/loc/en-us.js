@@ -62,6 +62,26 @@ define([], function() {
     "ResetConfirmTitle": "Reset to the sample?",
     "ResetConfirmText": "The HTML in the editor will be replaced with the sample. Unsaved changes will be lost.",
     "ResetButton": "Reset",
-    "EditorLoading": "Loading editor..."
+    "EditorLoading": "Loading editor...",
+    "IconPickerButton": "Icon Picker",
+    "IconPickerTitle": "Lucide icon picker",
+    "IconPickerHint": "Search, click an icon to select it, then insert the <icon> tag at the cursor in the editor.",
+    "IconSearchLabel": "Search icons",
+    "IconSearchPlaceholder": "Search by name, for example calendar",
+    "IconSizeLabel": "Size (8 to 256)",
+    "IconColorLabel": "Color (optional)",
+    "IconInsertButton": "Insert icon",
+    "IconInsertDynamicButton": "Insert dynamic icon ({item.Icon})",
+    "IconCloseButton": "Close",
+    "IconNoResults": "No icons match your search.",
+    "IconShowMore": "Show more",
+    "IconLoading": "Loading icons...",
+    "IconLoadError": "The icon catalog could not be loaded. Check your connection and try again.",
+    "IconResultCount": "{0} icons found",
+    "IconSelected": "Selected: {0}",
+    "IconInvalidSize": "Size must be a whole number from 8 to 256.",
+    "IconInvalidColor": "Color must be a hex value such as #2563eb, an rgb() or hsl() value, or a color name.",
+    "IconCatalogLink": "Browse the full catalog at lucide.dev/icons",
+    "ExportIconNamesButton": "Export Icon Names"
   }
 });

@@ -6,7 +6,7 @@ import { EditorView } from '@codemirror/view';
 
 import { getFieldSupport } from '../../templating/FieldSupport';
 import { createEditorTheme } from '../editorThemes';
-import { createPlaceholderCompletionSource, iconCompletionSource, placeholderHighlighter } from '../templateLanguage';
+import { createPlaceholderCompletionSource, placeholderHighlighter } from '../templateLanguage';
 
 /** Runs a completion source at the end of `doc` (the cursor position). */
 function complete(source: (c: CompletionContext) => CompletionResult | null | Promise<CompletionResult | null>, doc: string): CompletionResult | null {
@@ -32,14 +32,6 @@ describe('placeholder completion', () => {
 
   it('does nothing outside placeholders', () => {
     expect(complete(source, '<p>hello')).toBeNull();
-  });
-});
-
-describe('icon completion', () => {
-  it('offers Uicons names after "fi-rr-" only', () => {
-    const result = complete(iconCompletionSource, '<i class="fi fi-rr-cal');
-    expect(result!.options.some((o) => o.label === 'fi-rr-calendar')).toBe(true);
-    expect(complete(iconCompletionSource, '<i class="fi ')).toBeNull();
   });
 });
 

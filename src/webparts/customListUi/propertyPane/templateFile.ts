@@ -32,12 +32,13 @@ export function readTemplateFile(file: File): Promise<string> {
 }
 
 /**
- * Saves text to the user's computer as an .html file. Nothing is stored in SharePoint.
+ * Saves text to the user's computer as a file. Nothing is stored in SharePoint.
  * @param fileName - Suggested file name.
  * @param content - File content.
+ * @param mimeType - Content type, for example "text/html" or "text/plain".
  */
-export function downloadHtmlFile(fileName: string, content: string): void {
-  const blob: Blob = new Blob([content], { type: 'text/html;charset=utf-8' });
+export function downloadTextFile(fileName: string, content: string, mimeType: string): void {
+  const blob: Blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
   const url: string = URL.createObjectURL(blob);
 
   const link: HTMLAnchorElement = document.createElement('a');
@@ -50,4 +51,9 @@ export function downloadHtmlFile(fileName: string, content: string): void {
 
   // Give the browser a moment to start the download before releasing the object URL.
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Saves an .html file to the user's computer. */
+export function downloadHtmlFile(fileName: string, content: string): void {
+  downloadTextFile(fileName, content, 'text/html');
 }

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { MessageBar, MessageBarType } from '@fluentui/react';
 
 import * as strings from 'CustomListUiWebPartStrings';
-import { ensureIconStyles } from '../icons/IconLoader';
+import { LucideIconLayer } from '../lucide/LucideIconLayer';
 import type { IListItem } from '../models/ListModels';
 import { DEFAULT_ITEM_LIMIT } from '../services/SharePointListService';
 import {
@@ -44,18 +44,13 @@ export const TemplateOutput: React.FC<ITemplateOutputProps> = (props) => {
     [htmlTemplate, legacyTitle, legacyDescription]
   );
 
-  // Load the bundled icon styles (once per page) only when the template actually uses icons.
-  const usesIcons: boolean = !!compiled.template?.usesIcons;
-  React.useEffect(() => {
-    if (usesIcons) {
-      ensureIconStyles().catch(() => undefined);
-    }
-  }, [usesIcons]);
-
   const rendered: IRenderResult | undefined = React.useMemo(
     () => (compiled.template ? renderTemplate(compiled.template, { legacyTitle, legacyDescription, items }) : undefined),
     [compiled, items, legacyTitle, legacyDescription]
   );
+
+  // The element that receives the sanitized HTML; <icon> markers inside it are drawn as React SVG icons.
+  const hostRef = React.useRef<HTMLDivElement>(null);
 
   const renderErrors = (errors: string[]): JSX.Element => (
     <MessageBar messageBarType={MessageBarType.error} isMultiline>
@@ -68,6 +63,9 @@ export const TemplateOutput: React.FC<ITemplateOutputProps> = (props) => {
     </MessageBar>
   );
 
+  // Compile-time and render-time notes, without duplicates.
+  const notes: string[] = [...compiled.warnings, ...(rendered?.warnings ?? [])].filter((w, i, all) => all.indexOf(w) === i);
+
   if (compiled.errors.length > 0) {
     return renderErrors(compiled.errors);
   }
@@ -78,11 +76,11 @@ export const TemplateOutput: React.FC<ITemplateOutputProps> = (props) => {
   return (
     <>
       {/* Migration warnings and notes are only useful to editors, so visitors never see them. */}
-      {showNotes && compiled.warnings.length > 0 && (
+      {showNotes && notes.length > 0 && (
         <MessageBar messageBarType={MessageBarType.warning} isMultiline className={styles.status}>
           <strong>{strings.TemplateNotesHeading}</strong>
           <ul>
-            {compiled.warnings.map((w, i) => (
+            {notes.map((w, i) => (
               <li key={i}>{w}</li>
             ))}
           </ul>
@@ -94,7 +92,8 @@ export const TemplateOutput: React.FC<ITemplateOutputProps> = (props) => {
         </MessageBar>
       )}
       {/* The HTML below has been through the allow-list sanitizer (DOMPurify + CSS filter) in renderTemplate. */}
-      <div className={styles.templateHost} data-clui-host="" dangerouslySetInnerHTML={{ __html: rendered?.html ?? '' }} />
+      <div ref={hostRef} className={styles.templateHost} data-clui-host="" dangerouslySetInnerHTML={{ __html: rendered?.html ?? '' }} />
+      <LucideIconLayer host={hostRef} html={rendered?.html ?? ''} />
       {hasMore && (
         <MessageBar messageBarType={MessageBarType.info} className={styles.status}>
           {format(strings.ItemsTruncated, String(DEFAULT_ITEM_LIMIT))}

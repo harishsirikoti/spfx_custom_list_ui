@@ -95,6 +95,48 @@ describe('compileTemplate / renderTemplate', () => {
     expect(result.html).toContain('href="https://contoso.com/a"');
   });
 
+  it('supports SharePoint Hyperlink .url and .desc subfields', () => {
+    const compiled = compileTemplate('{{#each items}}<a href="{item.nav_link.url}">{item.nav_link.desc}</a>{{/each}}');
+    expect(compiled.errors).toEqual([]);
+    const result = renderTemplate(compiled.template!, {
+      legacyTitle: '',
+      legacyDescription: '',
+      items: [{ nav_link: { Url: 'https://contoso.com/docs', Description: 'Project docs' } }]
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+    expect(result.html).toContain('href="https://contoso.com/docs"');
+    expect(result.html).toContain('>Project docs</a>');
+  });
+
+  it('handles missing Hyperlink URL and description parts', () => {
+    const compiled = compileTemplate('{{#each items}}<a href="{item.nav_link.url}">{item.nav_link.desc}</a>{{/each}}');
+    const result = renderTemplate(compiled.template!, {
+      legacyTitle: '',
+      legacyDescription: '',
+      items: [{ nav_link: { Url: '', Description: '' } }, { nav_link: null }]
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.html).toBe('<a href=""></a><a href=""></a>');
+  });
+
+  it('sanitizes malicious Hyperlink URLs and escapes descriptions', () => {
+    const compiled = compileTemplate('{{#each items}}<a href="{item.nav_link.url}">{item.nav_link.desc}</a>{{/each}}');
+    const result = renderTemplate(compiled.template!, {
+      legacyTitle: '',
+      legacyDescription: '',
+      items: [{ nav_link: { Url: 'javascript:alert(1)', Description: '<script>alert(1)</script>' } }]
+    });
+    expect(result.html).not.toContain('javascript:');
+    expect(result.html).not.toContain('<script>');
+    expect(result.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('rejects unsupported nested placeholder properties', () => {
+    expect(compileTemplate('{{#each items}}{item.nav_link.title}{{/each}}').errors[0]).toContain('Unknown placeholder');
+  });
+
   it('reports unknown list fields', () => {
     const compiled = compileTemplate('{{#each items}}{item.Missing}{{/each}}');
     const result = renderTemplate(compiled.template!, { legacyTitle: '', legacyDescription: '', items: [{ Title: 'a' }] });
@@ -113,7 +155,6 @@ describe('default / sample template', () => {
     const result = compileTemplate(DEFAULT_TEMPLATE);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toEqual([]);
-    expect(result.template!.usesIcons).toBe(true);
     expect(result.template!.hasEachBlock).toBe(true);
     expect(result.template!.itemFields).toEqual(['Title']);
   });
@@ -129,9 +170,8 @@ describe('default / sample template', () => {
     expect(result.html).toContain('<footer');
     expect(result.html.match(/<article/g)?.length).toBe(3);
     expect(result.html).toContain('>Two</h3>');
-    expect(result.html).toContain('fi-rr-document');
+    expect(result.html).toContain('<icon name="file-text" size="22" color="#0078d4"></icon>');
     expect(result.html).toContain('grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))');
-    expect(result.html).toContain('rel="noopener noreferrer"');
     expect(result.html).not.toContain('<!--');
   });
 
@@ -148,30 +188,6 @@ describe('default / sample template', () => {
     // eslint-disable-next-line no-control-regex
     expect(/^[\x09\x0a\x0d\x20-\x7e]*$/.test(DEFAULT_TEMPLATE)).toBe(true);
     expect(DEFAULT_TEMPLATE).toContain('{{#each items}}');
-  });
-});
-
-describe('icons and classes', () => {
-  it('keeps Uicons classes on i and span, and drops other classes with a warning', () => {
-    const r = sanitizeHtml('<i class="fi fi-rr-calendar" aria-hidden="true"></i><span class="fi-rr-home ms-Grid"></span><div class="fi-rr-home evil"></div>');
-    expect(r.html).toContain('<i class="fi fi-rr-calendar" aria-hidden="true"></i>');
-    expect(r.html).toContain('<span class="fi-rr-home"></span>');
-    expect(r.html).not.toContain('evil');
-    expect(r.html).not.toContain('ms-Grid');
-    expect(r.violations).toEqual([]);
-    expect(r.warnings.length).toBe(3);
-  });
-
-  it('warns (without failing) about icons that are not in the bundle', () => {
-    const r = compileTemplate('<i class="fi fi-rr-does-not-exist-xyz"></i>');
-    expect(r.errors).toEqual([]);
-    expect(r.warnings[0]).toContain('fi-rr-does-not-exist-xyz');
-  });
-
-  it('rejects other icon families and malformed names', () => {
-    const r = sanitizeHtml('<i class="fi-sr-calendar fi-rr-Bad_Name"></i>');
-    expect(r.html).not.toContain('class');
-    expect(r.warnings.length).toBe(2);
   });
 });
 
@@ -228,5 +244,67 @@ describe('errors', () => {
     expect(compileTemplate('<p>{{#each items}}').errors[0]).toContain('never closed');
     const missing = renderTemplate(compileTemplate('{{#each items}}{item.Nope}{{/each}}').template!, { ...EMPTY, items: [{ Title: 'a' }] });
     expect(missing.errors[0]).toContain('Unknown list field {item.Nope}');
+  });
+});
+
+describe('dynamic Lucide icons from list columns', () => {
+  const TEMPLATE = '{{#each items}}<icon name="{item.Icon}" size="20"></icon>{{/each}}';
+  const render = (
+    items: Array<Record<string, unknown>>
+  ): { compiled: ReturnType<typeof compileTemplate>; result: ReturnType<typeof renderTemplate> } => {
+    const compiled = compileTemplate(TEMPLATE);
+    expect(compiled.errors).toEqual([]);
+    return { compiled, result: renderTemplate(compiled.template!, { ...EMPTY, items }) };
+  };
+
+  it('does not warn about the sample value used while validating the template', () => {
+    expect(compileTemplate(TEMPLATE).warnings).toEqual([]);
+  });
+
+  it('gives every item its own icon name', () => {
+    const { result } = render([{ Icon: 'user' }, { Icon: 'calendar-days' }, { Icon: 'file-text' }]);
+    expect(result.errors).toEqual([]);
+    expect(result.html).toContain('<icon name="user" size="20"></icon>');
+    expect(result.html).toContain('<icon name="calendar-days" size="20"></icon>');
+    expect(result.html).toContain('<icon name="file-text" size="20"></icon>');
+  });
+
+  it('maps legacy Font Awesome values to canonical Lucide names', () => {
+    const { result } = render([
+      { Icon: 'FaSearch' },
+      { Icon: 'FaUserCheck' },
+      { Icon: 'FaArrowRight' },
+      { Icon: 'FaArrowLeft' },
+      { Icon: 'FaArrowUp' }
+    ]);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+    expect(result.html).toContain('<icon name="search" size="20"></icon>');
+    expect(result.html).toContain('<icon name="user-check" size="20"></icon>');
+    expect(result.html).toContain('<icon name="arrow-right" size="20"></icon>');
+    expect(result.html).toContain('<icon name="arrow-left" size="20"></icon>');
+    expect(result.html).toContain('<icon name="arrow-up" size="20"></icon>');
+  });
+
+  it('normalizes case and extra spaces', () => {
+    const { result } = render([{ Icon: '  Calendar Days ' }]);
+    expect(result.html).toContain('<icon name="calendar-days" size="20"></icon>');
+  });
+
+  it('handles invalid values without breaking the page and reports notes', () => {
+    const { result } = render([{ Icon: '' }, { Icon: null }, { Icon: 'not-a-real-icon' }, { Icon: 'user' }]);
+    expect(result.errors).toEqual([]);
+    expect(result.html.match(/<icon/g)?.length).toBe(4);
+    expect(result.warnings.some((w) => w.includes('not-a-real-icon'))).toBe(true);
+  });
+
+  it('reports a missing Icon column as an unknown field', () => {
+    const { result } = render([{ Title: 'a' }]);
+    expect(result.errors[0]).toContain('Unknown list field {item.Icon}');
+  });
+
+  it('still rejects placeholders in unsafe attribute positions', () => {
+    expect(compileTemplate('{{#each items}}<i style="{item.Icon}"></i>{{/each}}').errors.length).toBe(1);
+    expect(compileTemplate('{{#each items}}<i onclick="{item.Icon}"></i>{{/each}}').errors.length).toBe(1);
   });
 });

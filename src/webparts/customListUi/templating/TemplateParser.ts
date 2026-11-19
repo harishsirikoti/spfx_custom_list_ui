@@ -19,7 +19,7 @@ const RAW_TEXT_ELEMENTS: string[] = ['script', 'style', 'textarea', 'title'];
 const DIRECTIVE_PATTERN: RegExp = /^\{\{\s*([^{}]*?)\s*\}\}/;
 const PLACEHOLDER_PATTERN: RegExp = /^\{\s*([^{}\s]*)\s*\}/;
 const WP_PROPERTY_PATTERN: RegExp = /^(wp_title|wp_description)$/;
-const ITEM_FIELD_PATTERN: RegExp = /^item\.([A-Za-z_][A-Za-z0-9_]*)$/;
+const ITEM_FIELD_PATTERN: RegExp = /^item\.([A-Za-z_][A-Za-z0-9_]*)(?:\.(url|desc))?$/;
 /** Text that is clearly meant to be a placeholder (identifier-like), as opposed to stray braces. */
 const PLACEHOLDER_LIKE_PATTERN: RegExp = /^[A-Za-z_][A-Za-z0-9_.]*$/;
 const START_TAG_PATTERN: RegExp = /^<(\/?)([A-Za-z][A-Za-z0-9:-]*)/;
@@ -290,7 +290,15 @@ export function parseTemplate(template: string): IParsedTemplate {
         addIssue(`{${name}} can only be used between {{#each items}} and {{/each}}.`, line, column);
         return true;
       }
-      node = { type: 'field', source: 'item', fieldName: itemMatch[1], context, line, column };
+      node = {
+        type: 'field',
+        source: 'item',
+        fieldName: itemMatch[1],
+        fieldProperty: itemMatch[2] as 'url' | 'desc' | undefined,
+        context,
+        line,
+        column
+      };
       if (itemFields.indexOf(itemMatch[1]) === -1) {
         itemFields.push(itemMatch[1]);
       }
@@ -303,6 +311,8 @@ export function parseTemplate(template: string): IParsedTemplate {
       return true;
     }
 
+    // Remember the attribute (for example "class") so later steps can treat it specially.
+    node.attrName = s.inTag ? s.attrName.toLowerCase() : undefined;
     flushText();
     push(node);
     // Keep the attribute value length in sync so "first in a URL" detection stays accurate.

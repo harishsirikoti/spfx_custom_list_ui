@@ -1,5 +1,13 @@
 import createDOMPurify from 'dompurify';
-import { UICON_NAMES } from '../icons/uiconNames';
+import {
+  ICON_ATTRIBUTES,
+  ICON_NAME_PATTERN,
+  isSafeIconColor,
+  normalizeIconName,
+  parseIconSize,
+  parseStrokeWidth
+} from '../lucide/iconAttributes';
+import { LUCIDE_CATALOG_VERSION, resolveIconName } from '../lucide/iconRegistry';
 import { sanitizeInlineCss } from './CssSanitizer';
 
 /** Result of sanitizing an HTML string. */
@@ -8,7 +16,7 @@ export interface ISanitizeResult {
   html: string;
   /** Descriptions of everything that was removed (empty when the input was already clean). */
   violations: string[];
-  /** Non-blocking notes: removed classes and icons that are not available. The HTML is still safe to use. */
+  /** Non-blocking notes: icons that are not available. The HTML is still safe to use. */
   warnings: string[];
 }
 
@@ -16,16 +24,86 @@ export interface ISanitizeResult {
 const ALLOWED_TAGS: string[] = [
   'a', 'abbr', 'address', 'article', 'aside', 'b', 'blockquote', 'br', 'caption', 'cite', 'code', 'col', 'colgroup',
   'dd', 'del', 'details', 'div', 'dl', 'dt', 'em', 'figcaption', 'figure', 'footer', 'h1', 'h2', 'h3', 'h4', 'h5',
-  'h6', 'header', 'hr', 'i', 'img', 'ins', 'li', 'main', 'mark', 'nav', 'ol', 'p', 'pre', 'q', 's', 'section',
+  'h6', 'header', 'hr', 'i', 'icon', 'img', 'ins', 'li', 'main', 'mark', 'nav', 'ol', 'p', 'pre', 'q', 's', 'section',
   'small', 'span', 'strong', 'sub', 'summary', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'time',
   'tr', 'u', 'ul'
 ];
 
 /** Attributes that may appear on those elements. aria-* is additionally allowed; data-* and event handlers are not. */
 const ALLOWED_ATTR: string[] = [
-  'alt', 'class', 'colspan', 'datetime', 'dir', 'height', 'href', 'lang', 'loading', 'open', 'rel', 'role',
+  'alt', 'colspan', 'datetime', 'dir', 'height', 'href', 'lang', 'loading', 'open', 'rel', 'role',
   'rowspan', 'scope', 'src', 'style', 'target', 'title', 'width'
 ];
+
+/** Violations collected by the hooks while a single sanitize call is running. */
+let currentViolations: string[] = [];
+let currentWarnings: string[] = [];
+
+/**
+ * Validates one attribute of an <icon name="..." size="..." color="..." stroke-width="..."> marker.
+ * Valid values are written back in canonical form and kept; anything else is dropped with a note, so a bad
+ * or unknown icon never breaks the page. Nothing but these four validated attributes can reach the icon.
+ */
+function handleIconAttribute(
+  element: Element,
+  data: { attrName: string; attrValue: string; keepAttr: boolean; forceKeepAttr?: boolean }
+): void {
+  const raw: string = data.attrValue.trim();
+  data.keepAttr = false;
+  if (raw === '') {
+    return; // An empty value (for example an empty list cell) simply shows no icon.
+  }
+
+  switch (data.attrName) {
+    case 'name': {
+      const name: string = normalizeIconName(raw);
+      const canonical: string | undefined = ICON_NAME_PATTERN.test(name) && name.length <= 64 ? resolveIconName(name) : undefined;
+      if (!canonical) {
+        currentWarnings.push(
+          `Icon "${raw}" is not in the installed Lucide catalog (lucide-react ${LUCIDE_CATALOG_VERSION}) and will not display`
+        );
+        return;
+      }
+      data.attrValue = canonical;
+      break;
+    }
+    case 'size': {
+      const size: number | undefined = parseIconSize(raw);
+      if (size === undefined) {
+        currentWarnings.push(`Icon size "${raw}" is not valid (use a whole number from 8 to 256); the default size is used`);
+        return;
+      }
+      data.attrValue = String(size);
+      break;
+    }
+    case 'color':
+      if (!isSafeIconColor(raw)) {
+        currentWarnings.push(`Icon color "${raw}" is not valid (use a hex value such as #2563eb, rgb(), hsl() or a color name)`);
+        return;
+      }
+      data.attrValue = raw;
+      break;
+    default: {
+      const width: number | undefined = parseStrokeWidth(raw);
+      if (width === undefined) {
+        currentWarnings.push(`Icon stroke-width "${raw}" is not valid (use a number from 0.25 to 4)`);
+        return;
+      }
+      data.attrValue = String(width);
+    }
+  }
+  // These attributes are not in the general allow-list (in particular "name" is not allowed anywhere else),
+  // so the validated value is kept explicitly.
+  // DOMPurify does not write back a changed value for force-kept attributes, so store the canonical value here.
+  element.setAttribute(data.attrName, data.attrValue);
+  data.keepAttr = true;
+  data.forceKeepAttr = true;
+}
+
+/** Other attributes an <icon> may have: styling and accessibility only. */
+function isOtherAllowedIconAttribute(attrName: string): boolean {
+  return attrName === 'style' || attrName === 'role' || attrName === 'title' || attrName.indexOf('aria-') === 0;
+}
 
 /** Attributes that carry URLs and therefore need a scheme check. */
 const URL_ATTRIBUTES: string[] = ['href', 'src'];
@@ -34,31 +112,10 @@ const URL_ATTRIBUTES: string[] = ['href', 'src'];
 const SAFE_SCHEMES: string[] = ['http', 'https', 'mailto', 'tel'];
 
 /**
- * Class tokens are limited to the Flaticon Uicons naming pattern (regular rounded set), plus the marker class "fi".
- * Arbitrary classes are removed because they could pick up styles from the SharePoint page.
+ * URL scheme matcher used by the sanitizer.
  */
-const ICON_CLASS_PATTERN: RegExp = /^fi-rr-[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-/** Elements that may carry icon classes. */
-const ICON_ELEMENTS: string[] = ['I', 'SPAN'];
-
-let iconNameSet: Record<string, true> | undefined;
-
-function isKnownIcon(className: string): boolean {
-  if (!iconNameSet) {
-    iconNameSet = {};
-    UICON_NAMES.forEach((n) => {
-      (iconNameSet as Record<string, true>)[n] = true;
-    });
-  }
-  return iconNameSet[className] === true;
-}
-
 const SCHEME_PATTERN: RegExp = /^([a-z][a-z0-9+.-]*):/;
 
-/** Violations collected by the hooks while a single sanitize call is running. */
-let currentViolations: string[] = [];
-let currentWarnings: string[] = [];
 
 type Purifier = ReturnType<typeof createDOMPurify>;
 let purifier: Purifier | undefined;
@@ -84,21 +141,13 @@ function getPurifier(): Purifier {
 
   // Check URL schemes and sanitize inline CSS on every attribute that survives the allow-list.
   instance.addHook('uponSanitizeAttribute', (node, data) => {
-    if (data.attrName === 'class') {
-      const allowedHere: boolean = ICON_ELEMENTS.indexOf(node.nodeName) !== -1;
-      const kept: string[] = [];
-      data.attrValue.split(/\s+/).filter((c) => c.length > 0).forEach((c) => {
-        if (allowedHere && (c === 'fi' || ICON_CLASS_PATTERN.test(c))) {
-          kept.push(c);
-          if (c !== 'fi' && !isKnownIcon(c)) {
-            currentWarnings.push(`Icon "${c}" is not part of the bundled Uicons set and will not display`);
-          }
-        } else {
-          currentWarnings.push(`Class "${c}" was removed (only Flaticon Uicons classes such as fi-rr-calendar on <i> or <span> are allowed)`);
-        }
-      });
-      data.attrValue = kept.join(' ');
-      data.keepAttr = kept.length > 0;
+    if (node.nodeName === 'ICON' && ICON_ATTRIBUTES.indexOf(data.attrName) !== -1) {
+      handleIconAttribute(node, data);
+    } else if (data.attrName === 'class' && /(?:^|[\s,])fi(?:[\s,]|$)|fi-rr-/.test(data.attrValue.toLowerCase())) {
+      currentWarnings.push('Flaticon icon classes are no longer supported; use <icon name="..."></icon> with a Lucide name');
+    } else if (node.nodeName === 'ICON' && !isOtherAllowedIconAttribute(data.attrName)) {
+      // Strict: an <icon> marker carries no URLs, no data and nothing else.
+      data.keepAttr = false;
     } else if (data.attrName === 'style') {
       const result = sanitizeInlineCss(data.attrValue);
       currentViolations.push(...result.violations);
@@ -141,7 +190,9 @@ export function sanitizeHtml(dirty: string): ISanitizeResult {
     ALLOW_DATA_ATTR: false,
     ALLOW_UNKNOWN_PROTOCOLS: false,
     SANITIZE_DOM: true,
-    SANITIZE_NAMED_PROPS: true,
+    // id and name are not in the allow-list, so there is nothing to rename; this must stay off so the validated
+    // name of an <icon> is not given a prefix.
+    SANITIZE_NAMED_PROPS: false,
     // Parse everything as body content so a leading <script> or <style> is reported instead of vanishing into <head>.
     FORCE_BODY: true,
     RETURN_DOM: false,
@@ -164,8 +215,10 @@ export function sanitizeHtml(dirty: string): ISanitizeResult {
     } else if ('attribute' in entry && entry.attribute) {
       const name: string = entry.attribute.name.toLowerCase();
       // style/URL/target problems were already reported with a more specific message by the hooks.
-      if (name !== 'style' && name !== 'class' && URL_ATTRIBUTES.indexOf(name) === -1 && name !== 'target') {
-        const owner: string = entry.from ? entry.from.nodeName.toLowerCase() : 'element';
+      const owner: string = entry.from ? entry.from.nodeName.toLowerCase() : 'element';
+      // Invalid icon attributes were already reported as notes by handleIconAttribute.
+      const isIconNote: boolean = owner === 'icon' && ICON_ATTRIBUTES.indexOf(name) !== -1;
+      if (name !== 'style' && name !== 'class' && URL_ATTRIBUTES.indexOf(name) === -1 && name !== 'target' && !isIconNote) {
         violations.push(`The "${name}" attribute is not allowed on <${owner}>`);
       }
     }

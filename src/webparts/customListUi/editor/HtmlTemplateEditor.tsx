@@ -14,7 +14,11 @@ import {
 } from '@codemirror/view';
 
 import { createEditorTheme } from './editorThemes';
-import { createPlaceholderCompletionSource, iconCompletionSource, placeholderHighlighter } from './templateLanguage';
+import {
+  createPlaceholderCompletionSource,
+  lucideNameCompletionSource,
+  placeholderHighlighter
+} from './templateLanguage';
 
 /** Marks transactions that come from the host (React props), so they are not echoed back through onChange. */
 const ExternalChange = Annotation.define<boolean>();
@@ -79,7 +83,10 @@ export const HtmlTemplateEditor = React.forwardRef<IHtmlTemplateEditorHandle, IH
       html({ autoCloseTags: true, matchClosingTags: true }),
       autocompletion(),
       // Extra suggestion sources next to the HTML tag/attribute completions that lang-html provides.
-      EditorState.languageData.of(() => [{ autocomplete: placeholderSource }, { autocomplete: iconCompletionSource }]),
+      EditorState.languageData.of(() => [
+        { autocomplete: placeholderSource },
+        { autocomplete: lucideNameCompletionSource }
+      ]),
       placeholderHighlighter,
       keymap.of([...completionKeymap, ...searchKeymap, ...historyKeymap, ...defaultKeymap]),
       EditorView.contentAttributes.of({ 'aria-label': ariaLabel, 'aria-multiline': 'true' }),
